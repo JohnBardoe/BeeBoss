@@ -113,17 +113,15 @@ void Comm::fileReceive()
 
 	std::wcout << (wchar_t*)widen(rec).c_str() << std::endl;
 
-	FILE *fw = _wfopen((wchar_t*)widen(rec).c_str(), L"a");
+	FILE *fw = _wfopen((wchar_t*)widen(rec).c_str(), L"ab");
 
 	int recs = recvData(rec, 32, true);
-
-	rec[recs]='\0';
 	int size = atoi(rec);
 				
 
 	while(size > 0)
 	{
-		char buffer[NET_BUF_SIZE + 6];
+		char buffer[NET_BUF_SIZE];
 
 		if(size>= NET_BUF_SIZE)
 		{
@@ -168,11 +166,11 @@ void Comm::fileSend(wchar_t* fpath)
 	sendData(filesize, true);
 
 	
-	FILE *fr = _wfopen(fpath, (const wchar_t*)"r");
+	FILE *fr = _wfopen(fpath, L"rb");
 
 	while(size > 0)
 	{
-		char buffer[NET_BUF_SIZE + 6];
+		char buffer[NET_BUF_SIZE];
 
 		if(size>= NET_BUF_SIZE)
 			fread(buffer, NET_BUF_SIZE, 1, fr);

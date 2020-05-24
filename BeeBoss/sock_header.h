@@ -17,5 +17,5 @@
 #pragma comment(lib, "iphlpapi.lib")
 #pragma comment(lib, "ws2_32.lib")
 
-#define NET_BUF_SIZE 1024
+#define NET_BUF_SIZE 4096
 #define PORT_NO 15050 
