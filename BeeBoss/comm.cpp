@@ -12,7 +12,6 @@ SOCKET AcceptSocket;
 //handle OK reply
 //add cyrillic names support
 
-#define sizeof_array(x) sizeof(x)/sizeof(x[0])
 
 Comm::Comm()
 {
@@ -110,9 +109,9 @@ void Comm::closeConnection()
 void Comm::fileReceive()
 {
 
-	char rec[32];
+	char rec[500];
 	
-	recvData(rec, 32, true);
+	recvData(rec, 32, true); //filename
 
 	std::wcout << (wchar_t*)widen(rec).c_str() << std::endl;
 
@@ -154,7 +153,7 @@ void Comm::fileSend(wchar_t* fpath)
 {
 
 	// Extract filename
-	wchar_t filename[50];
+	wchar_t filename[500];
 	int i=wcslen(fpath);
 	for(;i>0;i--)if(fpath[i-1]=='\\')break;
 	for(int j=0;i<=(int)wcslen(fpath);i++)filename[j++]=fpath[i];
