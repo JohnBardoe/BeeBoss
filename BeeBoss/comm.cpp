@@ -5,7 +5,7 @@
 
 WSADATA wsaData;
 SOCKET m_socket;
-sockaddr_in con;
+sockaddr_in this_con, other_con;
 SOCKET AcceptSocket;
 
 //TODO: handle errors when sending/receiving
@@ -18,7 +18,7 @@ Comm::Comm()
     if ( iResult != NO_ERROR )
         printf("Error at WSAStartup()\n");
 
-    m_socket = socket( AF_INET, SOCK_DGRAM, 0 );
+    m_socket = socket( AF_INET, SOCK_DGRAM, IPPROTO_UDP );
 
     if ( m_socket == INVALID_SOCKET ) {
         printf( "Error at socket(): %ld\n", WSAGetLastError() );
@@ -33,25 +33,27 @@ Comm::~Comm(){WSACleanup();}
 
 void Comm::connect2Server(char *ip,int port)
 {
-    con.sin_family = AF_INET;
-    con.sin_addr.s_addr = inet_addr( ip );
-    con.sin_port = htons( port );
-
+    other_con.sin_family = AF_INET;
+	other_con.sin_addr.s_addr = inet_addr( ip );
+	other_con.sin_port = htons( port );
+	/*
     if ( connect( m_socket, (SOCKADDR*) &con, sizeof(con) ) == SOCKET_ERROR) {
         printf( "Failed to connect.\n" );
         WSACleanup();
         return;
     }
+	*/
+	//ADD CONNECTION CHECK
 }
 
 
 void Comm::startServer(int port)
 {
-    con.sin_family = AF_INET;
-	con.sin_addr.s_addr = INADDR_ANY;
-    con.sin_port = htons( port );
+    this_con.sin_family = AF_INET;
+	this_con.sin_addr.s_addr = INADDR_ANY;
+    this_con.sin_port = htons( port );
 
-    if ( bind( m_socket, (SOCKADDR*) &con, sizeof(con) ) == SOCKET_ERROR) {
+    if ( bind( m_socket, (SOCKADDR*) &this_con, sizeof(this_con) ) == SOCKET_ERROR) {
         printf( "Failed to connect.\n" );
         WSACleanup();
         return;
@@ -59,23 +61,20 @@ void Comm::startServer(int port)
 
 }
 
-void Comm::waitForClient()
-{
-		AcceptSocket = SOCKET_ERROR;
-        while ( AcceptSocket == SOCKET_ERROR ) {
-            AcceptSocket = accept( m_socket, NULL, NULL );
-        }
-}
 
-int Comm::sendData(char *sendbuf, bool confirmation = false)
+int Comm::sendData(char *sendbuf, bool confirmation)
 {
-	int size = sendto( m_socket, sendbuf, strlen(sendbuf), 0, reinterpret_cast<SOCKADDR*>(&con), sizeof(con));
+	int size;
+	if ((size = sendto(m_socket, sendbuf, strlen(sendbuf), 0, reinterpret_cast<SOCKADDR*>(&other_con), sizeof(other_con))) == SOCKET_ERROR) {
+		std::cout <<"Error in sendData: "<< WSAGetLastError() << std::endl;
+		return SOCKET_ERROR;
+	}
 	if (!confirmation)
 		return size;
 	else {
 		char recBuf[32];
 		recvData(recBuf, 32);
-		if (strcmp(recBuf, "OK"))
+		if (strcmp(recBuf, "OK") == 0)
 			return size;
 		else
 			return -1;
@@ -83,11 +82,15 @@ int Comm::sendData(char *sendbuf, bool confirmation = false)
 }
 
 
-int Comm::recvData(char *recvbuf,int size, bool confirmation = false)
+int Comm::recvData(char *recvbuf,int size, bool confirmation)
 {
-	sockaddr_in from;
-	int size_sock = sizeof(from);
-	int sz = recvfrom( m_socket, recvbuf, size, 0, reinterpret_cast<SOCKADDR*>(&from), &size_sock);
+
+	int size_sock = sizeof(other_con);
+	int sz;
+	if ((sz = recvfrom(m_socket, recvbuf, size, 0, reinterpret_cast<SOCKADDR*>(&other_con), &size_sock)) == SOCKET_ERROR) {
+		std::cout << "Error in recvData: " << WSAGetLastError() << std::endl;
+		return SOCKET_ERROR;
+	}
 	recvbuf[sz] = '\0';
 	if (confirmation)
 		sendData((char*)"OK");
@@ -101,16 +104,16 @@ void Comm::closeConnection()
 }
 
 
-void Comm::fileReceive(wchar_t* filename)
+void Comm::fileReceive()
 {
 
 	char rec[32];
 	
 	recvData(rec, 32, true);
 
-	filename = (wchar_t*)widen(rec).c_str();
+	std::wcout << (wchar_t*)widen(rec).c_str() << std::endl;
 
-	FILE *fw = _wfopen(filename, (const wchar_t*)"wb");
+	FILE *fw = _wfopen((wchar_t*)widen(rec).c_str(), L"a");
 
 	int recs = recvData(rec, 32, true);
 
@@ -158,14 +161,14 @@ void Comm::fileSend(wchar_t* fpath)
 	int size = (int)myFile.tellg();  //rewrite this pls
 	myFile.close();
 
-	char filesize[10];itoa(size,filesize,10);
+	char filesize[10];_itoa(size,filesize,10);
 	char recvBuf[32];
 
 	sendData((char*)narrow(filename).c_str(), true);
 	sendData(filesize, true);
 
 	
-	FILE *fr = _wfopen(fpath, (const wchar_t*)"rb");
+	FILE *fr = _wfopen(fpath, (const wchar_t*)"r");
 
 	while(size > 0)
 	{

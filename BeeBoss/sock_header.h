@@ -17,7 +17,5 @@
 #pragma comment(lib, "iphlpapi.lib")
 #pragma comment(lib, "ws2_32.lib")
 
-const char* END_FLAG = "FUCKYOU=!=!!!=PENUSANAL";
-
 #define NET_BUF_SIZE 1024
 #define PORT_NO 15050 
