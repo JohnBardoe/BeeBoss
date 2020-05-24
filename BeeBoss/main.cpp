@@ -2,7 +2,7 @@
 #include "comm.h"
 
 #define ENCRYPTION_KEY 4
-
+#define IS_RECEIVER_DEBUG true
 Comm c;
 
 void runserver()
@@ -10,27 +10,21 @@ void runserver()
 	// Start Server Daemon
 	c.startServer(27015);
 	printf("Server Started........\n");
-	while (TRUE) {
-		// Wait until a client connects
-		printf("Client Connected......\n");
+	while (TRUE)
+	{
+		char rec[50];
+		c.recvData(rec, 32, true);
 
-		// Work with client
-		while (TRUE)
+		if (strcmp(rec, "FileSend") == 0)
 		{
-			char rec[50];
-			c.recvData(rec, 32, true);
-
-			if (strcmp(rec, "FileSend") == 0)
-			{
-				c.fileReceive();
-				printf("File Received.........\n");
-			}
-			if (strcmp(rec, "EndConnection") == 0)break;
-			printf("Connection Ended......\n");
+			c.fileReceive();
+			printf("File Received.........\n");
 		}
-		// Disconnect client
-		c.closeConnection();
+		if (strcmp(rec, "EndConnection") == 0)break;
+		printf("Connection Ended......\n");
 	}
+	// Disconnect client
+	c.closeConnection();
 }
 
 void runclient(char* ip, wchar_t* fpath)
@@ -40,7 +34,7 @@ void runclient(char* ip, wchar_t* fpath)
 	c.connect2Server(ip, 27015);
 	printf("Connected to server...\n");
 	// Sending File
-	c.sendData((char*)"FileSend", true);
+	c.sendData((char*)"FileSend", 9, true);
 	c.fileSend(fpath);
 	printf("File Sent.............\n");
 	// Send Close Connection Signal
@@ -51,16 +45,17 @@ void runclient(char* ip, wchar_t* fpath)
 int main() {
 	setlocale(LC_ALL, "rus");
 	c = Comm();
-	
-	std::vector<std::wstring> droppedFiles = getDroppedFiles();
 
-	for (auto i : droppedFiles)
-		std::wcout << i << std::endl;
+	if (!IS_RECEIVER_DEBUG) {
+		std::vector<std::wstring> droppedFiles = getDroppedFiles();
 
-	runclient((char*)"127.0.0.1", (wchar_t*)droppedFiles[0].c_str());
-	
+		for (auto i : droppedFiles)
+			std::wcout << i << std::endl;
 
-	//runserver();
+		runclient((char*)"127.0.0.1", (wchar_t*)droppedFiles[0].c_str());
+	}
+	else
+		runserver();
 
 	return 0;
 }

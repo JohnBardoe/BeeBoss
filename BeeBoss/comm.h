@@ -9,7 +9,7 @@ public:
 	~Comm();
 
 	void connect2Server(char* ip, int port);
-	int sendData(char* sendbuf, bool confirmation = false);
+	int sendData(char* sendbuf, int buf_length, bool confirmation = false);
 	int recvData(char* recvbuf, int size, bool confirmation = false);
 	void fileSend(wchar_t* fpath);
 	void fileReceive();

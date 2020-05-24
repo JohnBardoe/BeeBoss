@@ -10,6 +10,9 @@ SOCKET AcceptSocket;
 
 //TODO: handle errors when sending/receiving
 //handle OK reply
+//add cyrillic names support
+
+#define sizeof_array(x) sizeof(x)/sizeof(x[0])
 
 Comm::Comm()
 {
@@ -62,10 +65,10 @@ void Comm::startServer(int port)
 }
 
 
-int Comm::sendData(char *sendbuf, bool confirmation)
+int Comm::sendData(char *sendbuf, int buf_length, bool confirmation)
 {
 	int size;
-	if ((size = sendto(m_socket, sendbuf, strlen(sendbuf), 0, reinterpret_cast<SOCKADDR*>(&other_con), sizeof(other_con))) == SOCKET_ERROR) {
+	if ((size = sendto(m_socket, sendbuf, buf_length, 0, reinterpret_cast<SOCKADDR*>(&other_con), sizeof(other_con))) == SOCKET_ERROR) {
 		std::cout <<"Error in sendData: "<< WSAGetLastError() << std::endl;
 		return SOCKET_ERROR;
 	}
@@ -93,7 +96,7 @@ int Comm::recvData(char *recvbuf,int size, bool confirmation)
 	}
 	recvbuf[sz] = '\0';
 	if (confirmation)
-		sendData((char*)"OK");
+		sendData((char*)"OK", 3);
 	return sz;
 }
 
@@ -113,32 +116,34 @@ void Comm::fileReceive()
 
 	std::wcout << (wchar_t*)widen(rec).c_str() << std::endl;
 
-	FILE *fw = _wfopen((wchar_t*)widen(rec).c_str(), L"ab");
+	FILE *fw = _wfopen((wchar_t*)widen(rec).c_str(), L"wb");
 
 	int recs = recvData(rec, 32, true);
 	int size = atoi(rec);
-				
+	int initialSize = size;
+	int expectedSize = NET_BUF_SIZE;
+	char* buffer = new char[NET_BUF_SIZE + 1];
 
 	while(size > 0)
 	{
-		char buffer[NET_BUF_SIZE];
+		memset(buffer, NULL, NET_BUF_SIZE + 1);
+		int sizeRecv = -1;
 
 		if(size>= NET_BUF_SIZE)
-		{
-			recvData(buffer, NET_BUF_SIZE, true);
-			fwrite(buffer, NET_BUF_SIZE, 1, fw);
-
-		}
+			expectedSize = NET_BUF_SIZE;
 		else
-		{
-			recvData(buffer, size, true);
-			buffer[size]='\0';
-			fwrite(buffer, size, 1, fw);
+			expectedSize = size;
+
+		sizeRecv = recvData(buffer, expectedSize, true);
+		buffer[expectedSize] = '\0';
+
+		double progress = (initialSize - size) / initialSize;
+		std::cout << size << std::endl;
+		
+		if (sizeRecv == expectedSize) {
+			fwrite(buffer, expectedSize, 1, fw);
+			size -= NET_BUF_SIZE;
 		}
-
-
-		size -= NET_BUF_SIZE;
-
 	}
 
 	fclose(fw);
@@ -148,7 +153,7 @@ void Comm::fileReceive()
 void Comm::fileSend(wchar_t* fpath)
 {
 
-	// Extract only filename from given path.
+	// Extract filename
 	wchar_t filename[50];
 	int i=wcslen(fpath);
 	for(;i>0;i--)if(fpath[i-1]=='\\')break;
@@ -158,37 +163,37 @@ void Comm::fileSend(wchar_t* fpath)
 	std::ifstream myFile (fpath, std::ios::in| std::ios::binary| std::ios::ate);
 	int size = (int)myFile.tellg();  //rewrite this pls
 	myFile.close();
-
+	
+	int initialSize = size;
+	int toSendSize = 0;
 	char filesize[10];_itoa(size,filesize,10);
 	char recvBuf[32];
 
-	sendData((char*)narrow(filename).c_str(), true);
-	sendData(filesize, true);
+	sendData((char*)narrow(filename).c_str(), wcslen(filename), true);
+	sendData(filesize, strlen(filesize), true);
 
-	
+	char* buffer = new char[NET_BUF_SIZE + 1];
 	FILE *fr = _wfopen(fpath, L"rb");
 
 	while(size > 0)
 	{
-		char buffer[NET_BUF_SIZE];
+		memset(buffer, NULL, NET_BUF_SIZE + 1);
 
-		if(size>= NET_BUF_SIZE)
-			fread(buffer, NET_BUF_SIZE, 1, fr);
+		if (size >= NET_BUF_SIZE)
+			toSendSize = NET_BUF_SIZE;
 		else
-		{
-			fread(buffer, size, 1, fr);
-			buffer[size]='\0';
-		}
+			toSendSize = size;
 
-		sendData(buffer, true);
+		fread(buffer, NET_BUF_SIZE, 1, fr);
+		buffer[NET_BUF_SIZE] = '\0';
 
-		size -= NET_BUF_SIZE;
+		double progress = (initialSize - size) / initialSize;
+		std::cout << size << std::endl;
 
+		if(sendData(buffer, toSendSize, true) == toSendSize)
+			size -= NET_BUF_SIZE;
 	}
 
 	fclose(fr);
 
 }
-
-
-
